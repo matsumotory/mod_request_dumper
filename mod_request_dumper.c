@@ -215,7 +215,6 @@ static void *mod_stlog_create_config(apr_pool_t *p, server_rec *s)
 static int mod_stlog_handler(request_rec *r)
 {
     stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
-
     if (conf->handler_phase == ON)
         mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_handler", r->pool);
     return DECLINED;
@@ -225,7 +224,6 @@ static int mod_stlog_handler(request_rec *r)
 static int mod_stlog_translate_name(request_rec *r)
 {
     stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
-
     if (conf->translate_name_phase == ON)
         mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_translate_name", r->pool);
     return DECLINED;
@@ -235,7 +233,6 @@ static int mod_stlog_translate_name(request_rec *r)
 static int mod_stlog_log_transaction(request_rec *r)
 {
     stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
-
     if (conf->log_transaction_phase == ON)
         mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_log_transaction", r->pool);
     return DECLINED;
