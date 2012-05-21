@@ -4,6 +4,7 @@
 #include "http_core.h"
 #include "http_protocol.h"
 #include "ap_config.h"
+#include "http_log.h"
 #include "apr_strings.h"
 
 #include <unistd.h>
@@ -28,6 +29,7 @@
 
 typedef struct stlog_dir_config {
 
+    char *log_filename;
     int handler_phase;
     int translate_name_phase;
     int log_transaction_phase;
@@ -164,10 +166,33 @@ void mod_stlog_logging(json_object *json_obj, const char *func, apr_pool_t *p)
 
 static int mod_stlog_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *server)
 {
-    if(apr_file_open(&mod_stlog_fp, MOD_STLOG_FILE, APR_WRITE|APR_APPEND|APR_CREATE,
+    stlog_config_t *conf = ap_get_module_config(server->module_config, &request_dumper_module);
+
+    if(apr_file_open(&mod_stlog_fp, conf->log_filename, APR_WRITE|APR_APPEND|APR_CREATE,
            APR_OS_DEFAULT, p) != APR_SUCCESS){
+        ap_log_error(APLOG_MARK
+            , APLOG_ERR
+            , 0
+            , NULL
+            , "%s ERROR %s: dump log file oepn failed: %s"
+            , MODULE_NAME
+            , __func__
+            , conf->log_filename
+        );
+
         return OK;
     }
+
+    ap_log_perror(APLOG_MARK
+        , APLOG_NOTICE
+        , 0
+        , p
+        , "%s %s: %s / %s mechanism enabled."
+        , MODULE_NAME
+        , __func__
+        , MODULE_NAME
+        , MODULE_VERSION
+    );
 
     return OK;
 }
@@ -178,6 +203,7 @@ static void *mod_stlog_create_config(apr_pool_t *p, server_rec *s)
     stlog_config_t *conf =
         (stlog_config_t *) apr_pcalloc(p, sizeof (*conf));
 
+    conf->log_filename           = apr_pstrdup(p, MOD_STLOG_FILE);
     conf->handler_phase          = OFF;
     conf->translate_name_phase   = OFF;
     conf->log_transaction_phase  = OFF;
@@ -191,7 +217,7 @@ static int mod_stlog_handler(request_rec *r)
     stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
 
     if (conf->handler_phase == ON)
-        mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_handler", r->pool);
     return DECLINED;
 }
 
@@ -201,7 +227,7 @@ static int mod_stlog_translate_name(request_rec *r)
     stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
 
     if (conf->translate_name_phase == ON)
-        mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_translate_name", r->pool);
     return DECLINED;
 }
 
@@ -211,31 +237,39 @@ static int mod_stlog_log_transaction(request_rec *r)
     stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
 
     if (conf->log_transaction_phase == ON)
-        mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_log_transaction", r->pool);
     return DECLINED;
 }
 
 
-static const char *set_stlog_handler(cmd_parms *cmd, void *mconfig, int flag)
+static const char *set_stlog_logname(cmd_parms *cmd, void *mconfig, const char *log_filename)
 {
     stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
-    conf->handler_phase = flag; // On:1, Off:0
+    conf->log_filename = apr_pstrdup(cmd->pool, log_filename);
     return NULL;
 }
 
 
-static const char *set_stlog_translate_name(cmd_parms *cmd, void *mconfig, int flag)
+static const char *set_stlog_handler(cmd_parms *cmd, void *mconfig, int dump_on)
 {
-    stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &request_dumper_module);
-    conf->translate_name_phase = flag; // On:1, Off:0
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->handler_phase = dump_on;
     return NULL;
 }
 
 
-static const char *set_stlog_log_transaction(cmd_parms *cmd, void *mconfig, int flag)
+static const char *set_stlog_translate_name(cmd_parms *cmd, void *mconfig, int dump_on)
 {
     stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &request_dumper_module);
-    conf->log_transaction_phase = flag; // On:1, Off:0
+    conf->translate_name_phase = dump_on;
+    return NULL;
+}
+
+
+static const char *set_stlog_log_transaction(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &request_dumper_module);
+    conf->log_transaction_phase = dump_on;
     return NULL;
 }
 
@@ -251,6 +285,7 @@ static void register_hooks(apr_pool_t *p)
 
 static const command_rec mod_stlog_cmds[] = {
 
+    AP_INIT_TAKE1("DumpRequestLog", set_stlog_logname, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
     AP_INIT_FLAG("DumpTranslateName", set_stlog_translate_name, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
     AP_INIT_FLAG("DumpHandler", set_stlog_handler, NULL, RSRC_CONF | ACCESS_CONF, "hook for handler phase."),
     AP_INIT_FLAG("DumpLogTransaction", set_stlog_log_transaction, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
