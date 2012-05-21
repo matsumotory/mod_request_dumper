@@ -1,0 +1,11 @@
+* Install
+    make
+    make install
+
+* Setting to httpd.conf
+    DumpRequestLog "/tmp/apache_dump.log"
+    DumpTranslateName On
+    DumpHandler On
+    Dumplogtransaction On
+
+* Dump rquest_rec to /tmp/apache_dump.log
