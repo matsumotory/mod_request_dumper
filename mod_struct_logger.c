@@ -56,6 +56,10 @@ static json_object *ap_stlog_conn_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "local_ip", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->local_ip)));
     json_object_object_add(my_object, "local_host", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->local_host)));
 
+    json_object_object_add(my_object, "keepalives", json_object_new_int(r->connection->keepalives));
+    json_object_object_add(my_object, "data_in_input_filters", json_object_new_int(r->connection->data_in_input_filters));
+    //json_object_object_add(my_object, "clogging_input_filters", json_object_new_int(r->connection->clogging_input_filters));
+
     return my_object;
 }
 
@@ -71,6 +75,16 @@ static json_object *ap_stlog_server_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "server_admin", json_object_new_string(ap_mrb_string_check(r->pool, r->server->server_admin)));
     json_object_object_add(my_object, "path", json_object_new_string(ap_mrb_string_check(r->pool, r->server->path)));
     json_object_object_add(my_object, "server_hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->server->server_hostname)));
+
+    json_object_object_add(my_object, "loglevel", json_object_new_int(r->server->loglevel));
+    json_object_object_add(my_object, "is_virtual", json_object_new_int(r->server->is_virtual));
+    json_object_object_add(my_object, "keep_alive_max", json_object_new_int(r->server->keep_alive_max));
+    json_object_object_add(my_object, "keep_alive", json_object_new_int(r->server->keep_alive));
+    json_object_object_add(my_object, "pathlen", json_object_new_int(r->server->pathlen));
+    json_object_object_add(my_object, "limit_req_line", json_object_new_int(r->server->limit_req_line));
+    json_object_object_add(my_object, "limit_req_fieldsize", json_object_new_int(r->server->limit_req_fieldsize));
+    json_object_object_add(my_object, "limit_req_fields", json_object_new_int(r->server->limit_req_fields));
+    json_object_object_add(my_object, "limit_req_fields", json_object_new_int(r->server->limit_req_fields));
 
     return my_object;
 }
@@ -99,10 +113,23 @@ static json_object *ap_stlog_request_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "status_line", json_object_new_string(ap_mrb_string_check(r->pool, r->status_line)));
     json_object_object_add(my_object, "content_encoding", json_object_new_string(ap_mrb_string_check(r->pool, r->content_encoding)));
 
+    json_object_object_add(my_object, "assbackwards", json_object_new_int(r->assbackwards));
+    json_object_object_add(my_object, "proxyreq", json_object_new_int(r->proxyreq));
+    json_object_object_add(my_object, "header_only", json_object_new_int(r->header_only));
+    json_object_object_add(my_object, "proto_num", json_object_new_int(r->proto_num));
+    json_object_object_add(my_object, "status", json_object_new_int(r->status));
+    json_object_object_add(my_object, "method_number", json_object_new_int(r->method_number));
+    json_object_object_add(my_object, "chunked", json_object_new_int(r->chunked));
+    json_object_object_add(my_object, "read_body", json_object_new_int(r->read_body));
+    json_object_object_add(my_object, "read_chunked", json_object_new_int(r->read_chunked));
+    json_object_object_add(my_object, "no_cache", json_object_new_int(r->no_cache));
+    json_object_object_add(my_object, "no_local_copy", json_object_new_int(r->no_local_copy));
+    json_object_object_add(my_object, "used_path_info", json_object_new_int(r->used_path_info));
+    json_object_object_add(my_object, "eos_sent", json_object_new_int(r->eos_sent));
+
     json_object_object_add(my_object, "connection", ap_stlog_conn_rec_to_json(r));
     json_object_object_add(my_object, "server", ap_stlog_server_rec_to_json(r));
 
-    //json_object_object_add(my_object, "proto_num", json_object_new_int(r->proto_num));
 
     return my_object;
 }
