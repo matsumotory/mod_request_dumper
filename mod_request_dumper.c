@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <libgen.h>
+//#include <libgen.h>
 #include <time.h>
 #include <json.h>
 
@@ -39,7 +39,7 @@ typedef struct stlog_dir_config {
 module AP_MODULE_DECLARE_DATA request_dumper_module;
 apr_file_t *mod_stlog_fp = NULL;
 
-static char *ap_mrb_string_check(apr_pool_t *p, char *str)
+static const char *ap_mrb_string_check(apr_pool_t *p, const char *str)
 {
     if (str == NULL)
         str = apr_pstrdup(p, "null");
@@ -60,7 +60,6 @@ static json_object *ap_stlog_conn_rec_to_json(request_rec *r)
 
     json_object_object_add(my_object, "keepalives", json_object_new_int(r->connection->keepalives));
     json_object_object_add(my_object, "data_in_input_filters", json_object_new_int(r->connection->data_in_input_filters));
-    //json_object_object_add(my_object, "clogging_input_filters", json_object_new_int(r->connection->clogging_input_filters));
 
     return my_object;
 }
@@ -72,7 +71,6 @@ static json_object *ap_stlog_server_rec_to_json(request_rec *r)
     my_object = json_object_new_object();
     json_object_object_add(my_object, "error_fname", json_object_new_string(ap_mrb_string_check(r->pool, r->server->error_fname)));
     json_object_object_add(my_object, "defn_name", json_object_new_string(ap_mrb_string_check(r->pool, r->server->defn_name)));
-    json_object_object_add(my_object, "is_virtual", json_object_new_string(ap_mrb_string_check(r->pool, r->server->is_virtual)));
     json_object_object_add(my_object, "server_scheme", json_object_new_string(ap_mrb_string_check(r->pool, r->server->server_scheme)));
     json_object_object_add(my_object, "server_admin", json_object_new_string(ap_mrb_string_check(r->pool, r->server->server_admin)));
     json_object_object_add(my_object, "path", json_object_new_string(ap_mrb_string_check(r->pool, r->server->path)));
@@ -152,11 +150,8 @@ void mod_stlog_logging(json_object *json_obj, const char *func, apr_pool_t *p)
     json_object_object_add(json_obj, "pid", json_object_new_int(getpid()));
     json_object_object_add(json_obj, "hook", json_object_new_string(ap_mrb_string_check(p, func)));
 
-    val = json_object_to_json_string(json_obj);
+    val = (char *)json_object_to_json_string(json_obj);
 
-    if (val == NULL)
-        val = apr_pstrdup(p, "(null)");
-         
     mod_stlog_buf = (char *)apr_psprintf(p, "%s\n", val);
          
     apr_file_puts(mod_stlog_buf, mod_stlog_fp);
