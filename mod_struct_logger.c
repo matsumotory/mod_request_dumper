@@ -1,0 +1,243 @@
+#include "httpd.h"
+#include "http_config.h"
+#include "http_request.h"
+#include "http_core.h"
+#include "http_protocol.h"
+#include "ap_config.h"
+#include "apr_strings.h"
+
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <libgen.h>
+#include <time.h>
+#include <json.h>
+
+#define MOD_STLOG_FILE        "/tmp/mod_struct_logger.log"
+#define MODULE_NAME           "mod_struct_logger"
+#define MODULE_VERSION        "0.0.1"
+#define ON                    1
+#define OFF                   0
+
+typedef struct stlog_dir_config {
+
+    int handler_phase;
+    int translate_name_phase;
+    int log_transaction_phase;
+
+} stlog_config_t;
+
+module AP_MODULE_DECLARE_DATA struct_logger_module;
+apr_file_t *mod_stlog_fp = NULL;
+
+static char *ap_mrb_string_check(apr_pool_t *p, char *str)
+{
+    if (str == NULL)
+        str = apr_pstrdup(p, "null");
+
+    return str;
+}
+
+static json_object *ap_stlog_conn_rec_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "remote_ip", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->remote_ip)));
+    json_object_object_add(my_object, "remote_host", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->remote_host)));
+    json_object_object_add(my_object, "remote_logname", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->remote_logname)));
+    json_object_object_add(my_object, "local_ip", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->local_ip)));
+    json_object_object_add(my_object, "local_host", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->local_host)));
+
+    return my_object;
+}
+
+static json_object *ap_stlog_server_rec_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "error_fname", json_object_new_string(ap_mrb_string_check(r->pool, r->server->error_fname)));
+    json_object_object_add(my_object, "defn_name", json_object_new_string(ap_mrb_string_check(r->pool, r->server->defn_name)));
+    json_object_object_add(my_object, "is_virtual", json_object_new_string(ap_mrb_string_check(r->pool, r->server->is_virtual)));
+    json_object_object_add(my_object, "server_scheme", json_object_new_string(ap_mrb_string_check(r->pool, r->server->server_scheme)));
+    json_object_object_add(my_object, "server_admin", json_object_new_string(ap_mrb_string_check(r->pool, r->server->server_admin)));
+    json_object_object_add(my_object, "path", json_object_new_string(ap_mrb_string_check(r->pool, r->server->path)));
+    json_object_object_add(my_object, "server_hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->server->server_hostname)));
+
+    return my_object;
+}
+
+static json_object *ap_stlog_request_rec_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "filename", json_object_new_string(ap_mrb_string_check(r->pool, r->filename)));
+    json_object_object_add(my_object, "uri", json_object_new_string(ap_mrb_string_check(r->pool, r->uri)));
+    json_object_object_add(my_object, "user", json_object_new_string(ap_mrb_string_check(r->pool, r->user)));
+    json_object_object_add(my_object, "content_type", json_object_new_string(ap_mrb_string_check(r->pool, r->content_type)));
+    json_object_object_add(my_object, "protocol", json_object_new_string(ap_mrb_string_check(r->pool, r->protocol)));
+    json_object_object_add(my_object, "vlist_validator", json_object_new_string(ap_mrb_string_check(r->pool, r->vlist_validator)));
+    json_object_object_add(my_object, "ap_auth_type", json_object_new_string(ap_mrb_string_check(r->pool, r->ap_auth_type)));
+    json_object_object_add(my_object, "unparsed_uri", json_object_new_string(ap_mrb_string_check(r->pool, r->unparsed_uri)));
+    json_object_object_add(my_object, "canonical_filename", json_object_new_string(ap_mrb_string_check(r->pool, r->canonical_filename)));
+    json_object_object_add(my_object, "path_info", json_object_new_string(ap_mrb_string_check(r->pool, r->path_info)));
+    json_object_object_add(my_object, "hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->hostname)));
+    json_object_object_add(my_object, "method", json_object_new_string(ap_mrb_string_check(r->pool, r->method)));
+    json_object_object_add(my_object, "the_request", json_object_new_string(ap_mrb_string_check(r->pool, r->the_request)));
+    json_object_object_add(my_object, "range", json_object_new_string(ap_mrb_string_check(r->pool, r->range)));
+    json_object_object_add(my_object, "handler", json_object_new_string(ap_mrb_string_check(r->pool, r->handler)));
+    json_object_object_add(my_object, "args", json_object_new_string(ap_mrb_string_check(r->pool, r->args)));
+    json_object_object_add(my_object, "status_line", json_object_new_string(ap_mrb_string_check(r->pool, r->status_line)));
+    json_object_object_add(my_object, "content_encoding", json_object_new_string(ap_mrb_string_check(r->pool, r->content_encoding)));
+
+    json_object_object_add(my_object, "connection", ap_stlog_conn_rec_to_json(r));
+    json_object_object_add(my_object, "server", ap_stlog_server_rec_to_json(r));
+
+    //json_object_object_add(my_object, "proto_num", json_object_new_int(r->proto_num));
+
+    return my_object;
+}
+
+void mod_stlog_logging(json_object *json_obj, const char *func, apr_pool_t *p)
+{
+    int len;
+    time_t t;
+    char *log_time, *val;
+    char *mod_stlog_buf = NULL;
+     
+    time(&t);
+    log_time = (char *)ctime(&t);
+    len = strlen(log_time);
+    log_time[len - 1] = '\0';
+
+    json_object_object_add(json_obj, "time", json_object_new_string(ap_mrb_string_check(p, log_time)));
+    json_object_object_add(json_obj, "pid", json_object_new_int(getpid()));
+    json_object_object_add(json_obj, "hook", json_object_new_string(ap_mrb_string_check(p, func)));
+
+    val = json_object_to_json_string(json_obj);
+
+    if (val == NULL)
+        val = apr_pstrdup(p, "(null)");
+         
+    mod_stlog_buf = (char *)apr_psprintf(p, "%s\n", val);
+         
+    apr_file_puts(mod_stlog_buf, mod_stlog_fp);
+    apr_file_flush(mod_stlog_fp);
+}
+
+
+static int mod_stlog_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *server)
+{
+    if(apr_file_open(&mod_stlog_fp, MOD_STLOG_FILE, APR_WRITE|APR_APPEND|APR_CREATE,
+           APR_OS_DEFAULT, p) != APR_SUCCESS){
+        return OK;
+    }
+
+    return OK;
+}
+
+
+static void *mod_stlog_create_config(apr_pool_t *p, server_rec *s)
+{
+    stlog_config_t *conf =
+        (stlog_config_t *) apr_pcalloc(p, sizeof (*conf));
+
+    conf->handler_phase          = OFF;
+    conf->translate_name_phase   = OFF;
+    conf->log_transaction_phase  = OFF;
+
+    return conf;
+}
+
+
+static int mod_stlog_handler(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &struct_logger_module);
+
+    if (conf->handler_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
+    return DECLINED;
+}
+
+
+static int mod_stlog_translate_name(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &struct_logger_module);
+
+    if (conf->translate_name_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
+    return DECLINED;
+}
+
+
+static int mod_stlog_log_transaction(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &struct_logger_module);
+
+    if (conf->log_transaction_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
+    return DECLINED;
+}
+
+
+static const char *set_stlog_handler(cmd_parms *cmd, void *mconfig, int flag)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &struct_logger_module);
+    conf->handler_phase = flag; // On:1, Off:0
+    return NULL;
+}
+
+
+static const char *set_stlog_translate_name(cmd_parms *cmd, void *mconfig, int flag)
+{
+    stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &struct_logger_module);
+    conf->translate_name_phase = flag; // On:1, Off:0
+    return NULL;
+}
+
+
+static const char *set_stlog_log_transaction(cmd_parms *cmd, void *mconfig, int flag)
+{
+    stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &struct_logger_module);
+    conf->log_transaction_phase = flag; // On:1, Off:0
+    return NULL;
+}
+
+
+static void register_hooks(apr_pool_t *p)
+{   
+    ap_hook_post_config(mod_stlog_init, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_handler(mod_stlog_handler, NULL, NULL, APR_HOOK_REALLY_FIRST);
+    ap_hook_translate_name(mod_stlog_translate_name, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_log_transaction(mod_stlog_log_transaction, NULL, NULL, APR_HOOK_MIDDLE);
+}
+
+
+static const command_rec mod_stlog_cmds[] = {
+
+    AP_INIT_FLAG("StlogTranslateName", set_stlog_translate_name, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
+    AP_INIT_FLAG("StlogHandler", set_stlog_handler, NULL, RSRC_CONF | ACCESS_CONF, "hook for handler phase."),
+    AP_INIT_FLAG("StlogLogTransaction", set_stlog_log_transaction, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
+    {NULL}
+};
+
+
+module AP_MODULE_DECLARE_DATA struct_logger_module = {
+    STANDARD20_MODULE_STUFF,
+    NULL,                      /* dir config creater */
+    NULL,                      /* dir merger */
+    mod_stlog_create_config,   /* server config */
+    NULL,                      /* merge server config */
+    mod_stlog_cmds,            /* command apr_table_t */
+    register_hooks             /* register hooks */
+};
+
