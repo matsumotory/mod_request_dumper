@@ -1,10 +1,10 @@
 ##
-##  Makefile -- Build procedure for sample mod_struct_logger Apache module
+##  Makefile -- Build procedure for sample mod_request_dumper Apache module
 ##	  MATSUMOTO, Ryosuke
 ##
 
 # target module source
-TARGET=mod_struct_logger.c
+TARGET=mod_request_dumper.c
 
 #   the used tools
 APXS=/usr/sbin/apxs
@@ -19,16 +19,16 @@ LIB=-lm /usr/lib/libjson.la
 WC=-Wc,-std=c99
 
 #   the default target
-all: mod_struct_logger.so
+all: mod_request_dumper.so
 
 #   compile the DSO file
-mod_struct_logger.so: $(TARGET)
+mod_request_dumper.so: $(TARGET)
 	$(APXS) -c $(DEF) $(INC) $(LIB) $(WC) $(TARGET)
 
 #   install the DSO file into the Apache installation
 #   and activate it in the Apache configuration
 install: all
-	$(APXS) -i -a -n 'struct_logger' .libs/mod_struct_logger.so
+	$(APXS) -i -a -n 'request_dumper' .libs/mod_request_dumper.so
 
 #   cleanup
 clean:

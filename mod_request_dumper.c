@@ -20,8 +20,8 @@
 #include <time.h>
 #include <json.h>
 
-#define MOD_STLOG_FILE        "/tmp/mod_struct_logger.log"
-#define MODULE_NAME           "mod_struct_logger"
+#define MOD_STLOG_FILE        "/tmp/mod_request_dumper.log"
+#define MODULE_NAME           "mod_request_dumper"
 #define MODULE_VERSION        "0.0.1"
 #define ON                    1
 #define OFF                   0
@@ -34,7 +34,7 @@ typedef struct stlog_dir_config {
 
 } stlog_config_t;
 
-module AP_MODULE_DECLARE_DATA struct_logger_module;
+module AP_MODULE_DECLARE_DATA request_dumper_module;
 apr_file_t *mod_stlog_fp = NULL;
 
 static char *ap_mrb_string_check(apr_pool_t *p, char *str)
@@ -188,7 +188,7 @@ static void *mod_stlog_create_config(apr_pool_t *p, server_rec *s)
 
 static int mod_stlog_handler(request_rec *r)
 {
-    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &struct_logger_module);
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
 
     if (conf->handler_phase == ON)
         mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
@@ -198,7 +198,7 @@ static int mod_stlog_handler(request_rec *r)
 
 static int mod_stlog_translate_name(request_rec *r)
 {
-    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &struct_logger_module);
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
 
     if (conf->translate_name_phase == ON)
         mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
@@ -208,7 +208,7 @@ static int mod_stlog_translate_name(request_rec *r)
 
 static int mod_stlog_log_transaction(request_rec *r)
 {
-    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &struct_logger_module);
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
 
     if (conf->log_transaction_phase == ON)
         mod_stlog_logging(ap_stlog_request_rec_to_json(r), __func__, r->pool);
@@ -218,7 +218,7 @@ static int mod_stlog_log_transaction(request_rec *r)
 
 static const char *set_stlog_handler(cmd_parms *cmd, void *mconfig, int flag)
 {
-    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &struct_logger_module);
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
     conf->handler_phase = flag; // On:1, Off:0
     return NULL;
 }
@@ -226,7 +226,7 @@ static const char *set_stlog_handler(cmd_parms *cmd, void *mconfig, int flag)
 
 static const char *set_stlog_translate_name(cmd_parms *cmd, void *mconfig, int flag)
 {
-    stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &struct_logger_module);
+    stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &request_dumper_module);
     conf->translate_name_phase = flag; // On:1, Off:0
     return NULL;
 }
@@ -234,7 +234,7 @@ static const char *set_stlog_translate_name(cmd_parms *cmd, void *mconfig, int f
 
 static const char *set_stlog_log_transaction(cmd_parms *cmd, void *mconfig, int flag)
 {
-    stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &struct_logger_module);
+    stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &request_dumper_module);
     conf->log_transaction_phase = flag; // On:1, Off:0
     return NULL;
 }
@@ -251,14 +251,14 @@ static void register_hooks(apr_pool_t *p)
 
 static const command_rec mod_stlog_cmds[] = {
 
-    AP_INIT_FLAG("StlogTranslateName", set_stlog_translate_name, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
-    AP_INIT_FLAG("StlogHandler", set_stlog_handler, NULL, RSRC_CONF | ACCESS_CONF, "hook for handler phase."),
-    AP_INIT_FLAG("StlogLogTransaction", set_stlog_log_transaction, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
+    AP_INIT_FLAG("DumpTranslateName", set_stlog_translate_name, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
+    AP_INIT_FLAG("DumpHandler", set_stlog_handler, NULL, RSRC_CONF | ACCESS_CONF, "hook for handler phase."),
+    AP_INIT_FLAG("DumpLogTransaction", set_stlog_log_transaction, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
     {NULL}
 };
 
 
-module AP_MODULE_DECLARE_DATA struct_logger_module = {
+module AP_MODULE_DECLARE_DATA request_dumper_module = {
     STANDARD20_MODULE_STUFF,
     NULL,                      /* dir config creater */
     NULL,                      /* dir merger */
