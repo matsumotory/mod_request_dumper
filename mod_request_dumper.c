@@ -8,16 +8,9 @@
 #include "apr_strings.h"
 
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/resource.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <errno.h>
-//#include <libgen.h>
 #include <time.h>
 #include <json.h>
 
@@ -41,8 +34,12 @@ apr_file_t *mod_stlog_fp = NULL;
 
 static const char *ap_mrb_string_check(apr_pool_t *p, const char *str)
 {
-    if (str == NULL)
-        str = apr_pstrdup(p, "null");
+    char *val;
+
+    if (str == NULL) {
+        val = apr_pstrdup(p, "null");
+        return val;
+    }
 
     return str;
 }
@@ -60,6 +57,18 @@ static json_object *ap_stlog_conn_rec_to_json(request_rec *r)
 
     json_object_object_add(my_object, "keepalives", json_object_new_int(r->connection->keepalives));
     json_object_object_add(my_object, "data_in_input_filters", json_object_new_int(r->connection->data_in_input_filters));
+
+    return my_object;
+}
+
+static json_object *ap_stlog_process_rec_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "short_name", json_object_new_string(ap_mrb_string_check(r->pool, r->server->process->short_name)));
+    //json_object_object_add(my_object, "argv", json_object_new_string(ap_mrb_string_check(r->pool, (char *)r->server->process->argv)));
+    json_object_object_add(my_object, "argc", json_object_new_int(r->server->process->argc));
 
     return my_object;
 }
@@ -85,6 +94,20 @@ static json_object *ap_stlog_server_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "limit_req_fieldsize", json_object_new_int(r->server->limit_req_fieldsize));
     json_object_object_add(my_object, "limit_req_fields", json_object_new_int(r->server->limit_req_fields));
     json_object_object_add(my_object, "limit_req_fields", json_object_new_int(r->server->limit_req_fields));
+
+    json_object_object_add(my_object, "process", ap_stlog_process_rec_to_json(r));
+
+    return my_object;
+}
+
+static json_object *ap_stlog_htaccess_result_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "dir", json_object_new_string(ap_mrb_string_check(r->pool, r->htaccess->dir)));
+    json_object_object_add(my_object, "override", json_object_new_int(r->htaccess->override));
+    json_object_object_add(my_object, "override_opts", json_object_new_int(r->htaccess->override_opts));
 
     return my_object;
 }
@@ -126,10 +149,11 @@ static json_object *ap_stlog_request_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "no_local_copy", json_object_new_int(r->no_local_copy));
     json_object_object_add(my_object, "used_path_info", json_object_new_int(r->used_path_info));
     json_object_object_add(my_object, "eos_sent", json_object_new_int(r->eos_sent));
+    json_object_object_add(my_object, "request_time", json_object_new_int(r->request_time));
 
     json_object_object_add(my_object, "connection", ap_stlog_conn_rec_to_json(r));
     json_object_object_add(my_object, "server", ap_stlog_server_rec_to_json(r));
-
+    //json_object_object_add(my_object, "htaccess", ap_stlog_htaccess_result_to_json(r));
 
     return my_object;
 }
