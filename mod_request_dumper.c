@@ -100,6 +100,7 @@ static json_object *ap_stlog_server_rec_to_json(request_rec *r)
     return my_object;
 }
 
+/*
 static json_object *ap_stlog_htaccess_result_to_json(request_rec *r)
 {
     json_object *my_object;
@@ -111,6 +112,7 @@ static json_object *ap_stlog_htaccess_result_to_json(request_rec *r)
 
     return my_object;
 }
+*/
 
 static json_object *ap_stlog_request_rec_to_json(request_rec *r)
 {
@@ -187,19 +189,41 @@ static int mod_stlog_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, se
 {
     stlog_config_t *conf = ap_get_module_config(server->module_config, &request_dumper_module);
 
-    if(apr_file_open(&mod_stlog_fp, conf->log_filename, APR_WRITE|APR_APPEND|APR_CREATE,
-           APR_OS_DEFAULT, p) != APR_SUCCESS){
-        ap_log_error(APLOG_MARK
-            , APLOG_ERR
-            , 0
-            , NULL
-            , "%s ERROR %s: dump log file oepn failed: %s"
-            , MODULE_NAME
-            , __func__
-            , conf->log_filename
-        );
+    if (*conf->log_filename == '|') {
+        piped_log *pl;
 
-        return OK;
+        pl = ap_open_piped_log(p, conf->log_filename + 1);
+        if (pl == NULL) {
+            ap_log_error(APLOG_MARK
+                , APLOG_ERR
+                , 0
+                , NULL
+                , "%s ERROR %s: dump pipe log oepn failed: %s"
+                , MODULE_NAME
+                , __func__
+                , conf->log_filename
+            );
+
+            return OK;
+        }
+
+        mod_stlog_fp = ap_piped_log_write_fd(pl);
+
+    } else {
+        if(apr_file_open(&mod_stlog_fp, conf->log_filename, APR_WRITE|APR_APPEND|APR_CREATE,
+               APR_OS_DEFAULT, p) != APR_SUCCESS){
+            ap_log_error(APLOG_MARK
+                , APLOG_ERR
+                , 0
+                , NULL
+                , "%s ERROR %s: dump log file oepn failed: %s"
+                , MODULE_NAME
+                , __func__
+                , conf->log_filename
+            );
+
+            return OK;
+        }
     }
 
     ap_log_perror(APLOG_MARK
