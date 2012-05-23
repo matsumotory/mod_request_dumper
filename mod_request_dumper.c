@@ -54,6 +54,30 @@ static const char *ap_mrb_string_check(apr_pool_t *p, const char *str)
     return str;
 }
 
+static json_object *ap_stlog_remote_addr_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->remote_addr->hostname)));
+
+    json_object_object_add(my_object, "port", json_object_new_int(r->connection->remote_addr->port));
+
+    return my_object;
+}
+
+static json_object *ap_stlog_local_addr_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->local_addr->hostname)));
+
+    json_object_object_add(my_object, "port", json_object_new_int(r->connection->local_addr->port));
+
+    return my_object;
+}
+
 static json_object *ap_stlog_conn_rec_to_json(request_rec *r)
 {
     json_object *my_object;
@@ -68,6 +92,9 @@ static json_object *ap_stlog_conn_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "keepalives", json_object_new_int(r->connection->keepalives));
     json_object_object_add(my_object, "data_in_input_filters", json_object_new_int(r->connection->data_in_input_filters));
 
+    json_object_object_add(my_object, "local_addr", ap_stlog_local_addr_to_json(r));
+    json_object_object_add(my_object, "remote_addr", ap_stlog_remote_addr_to_json(r));
+
     return my_object;
 }
 
@@ -79,6 +106,19 @@ static json_object *ap_stlog_process_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "short_name", json_object_new_string(ap_mrb_string_check(r->pool, r->server->process->short_name)));
     //json_object_object_add(my_object, "argv", json_object_new_string(ap_mrb_string_check(r->pool, (char *)r->server->process->argv)));
     json_object_object_add(my_object, "argc", json_object_new_int(r->server->process->argc));
+
+    return my_object;
+}
+
+static json_object *ap_stlog_server_addr_rec_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "virthost", json_object_new_string(ap_mrb_string_check(r->pool, r->server->addrs->virthost)));
+    json_object_object_add(my_object, "host_addr", json_object_new_string(ap_mrb_string_check(r->pool, (char *)r->server->addrs->host_addr)));
+
+    json_object_object_add(my_object, "host_port", json_object_new_int(r->server->addrs->host_port));
 
     return my_object;
 }
@@ -104,8 +144,13 @@ static json_object *ap_stlog_server_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "limit_req_fieldsize", json_object_new_int(r->server->limit_req_fieldsize));
     json_object_object_add(my_object, "limit_req_fields", json_object_new_int(r->server->limit_req_fields));
     json_object_object_add(my_object, "limit_req_fields", json_object_new_int(r->server->limit_req_fields));
+    json_object_object_add(my_object, "timeout", json_object_new_int((int)r->server->timeout));
+    json_object_object_add(my_object, "keep_alive_timeout", json_object_new_int((int)r->server->keep_alive_timeout));
+    json_object_object_add(my_object, "port", json_object_new_int((int)r->server->port));
+    json_object_object_add(my_object, "defn_line_number", json_object_new_int((int)r->server->defn_line_number));
 
     json_object_object_add(my_object, "process", ap_stlog_process_rec_to_json(r));
+    json_object_object_add(my_object, "addrs", ap_stlog_server_addr_rec_to_json(r));
 
     return my_object;
 }
