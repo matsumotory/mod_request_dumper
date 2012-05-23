@@ -110,15 +110,29 @@ static json_object *ap_stlog_process_rec_to_json(request_rec *r)
     return my_object;
 }
 
+static json_object *ap_stlog_host_addr_to_json(request_rec *r)
+{
+    json_object *my_object;
+
+    my_object = json_object_new_object();
+    json_object_object_add(my_object, "hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->server->addrs->host_addr->hostname)));
+
+    json_object_object_add(my_object, "port", json_object_new_int(r->server->addrs->host_addr->port));
+
+    return my_object;
+}
+
+
 static json_object *ap_stlog_server_addr_rec_to_json(request_rec *r)
 {
     json_object *my_object;
 
     my_object = json_object_new_object();
     json_object_object_add(my_object, "virthost", json_object_new_string(ap_mrb_string_check(r->pool, r->server->addrs->virthost)));
-    json_object_object_add(my_object, "host_addr", json_object_new_string(ap_mrb_string_check(r->pool, (char *)r->server->addrs->host_addr)));
 
     json_object_object_add(my_object, "host_port", json_object_new_int(r->server->addrs->host_port));
+
+    json_object_object_add(my_object, "host_addr", ap_stlog_host_addr_to_json(r));
 
     return my_object;
 }
