@@ -23,9 +23,19 @@
 typedef struct stlog_dir_config {
 
     char *log_filename;
-    int handler_phase;
     int translate_name_phase;
+    int post_read_request_phase;
+    int map_to_storage_phase;
+    int check_user_id_phase;
+    int type_checker_phase;
+    int access_checker_phase;
+    int auth_checker_phase;
+    int insert_filter_phase;
+    int fixups_phase;
+    int quick_handler_phase;
+    int handler_phase;
     int log_transaction_phase;
+    int error_log_phase;
 
 } stlog_config_t;
 
@@ -240,20 +250,110 @@ static int mod_stlog_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, se
     return OK;
 }
 
-
 static void *mod_stlog_create_config(apr_pool_t *p, server_rec *s)
 {
     stlog_config_t *conf =
         (stlog_config_t *) apr_pcalloc(p, sizeof (*conf));
 
-    conf->log_filename           = apr_pstrdup(p, MOD_STLOG_FILE);
-    conf->handler_phase          = OFF;
-    conf->translate_name_phase   = OFF;
-    conf->log_transaction_phase  = OFF;
+    conf->log_filename              = apr_pstrdup(p, MOD_STLOG_FILE);
+    conf->post_read_request_phase   = OFF;
+    conf->translate_name_phase      = OFF;
+    conf->map_to_storage_phase      = OFF;
+    conf->check_user_id_phase       = OFF;
+    conf->type_checker_phase        = OFF;
+    conf->access_checker_phase      = OFF;
+    conf->auth_checker_phase        = OFF;
+    conf->insert_filter_phase       = OFF;
+    conf->fixups_phase              = OFF;
+    conf->quick_handler_phase       = OFF;
+    conf->handler_phase             = OFF;
+    conf->log_transaction_phase     = OFF;
+    conf->error_log_phase           = OFF;
 
     return conf;
 }
 
+static int mod_stlog_post_read_request(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->post_read_request_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_post_read_request", r->pool);
+    return DECLINED;
+}
+
+static int mod_stlog_map_to_storage(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->map_to_storage_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_map_to_storage", r->pool);
+    return DECLINED;
+}
+
+static int mod_stlog_check_user_id(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->check_user_id_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_check_user_id", r->pool);
+    return DECLINED;
+}
+
+static int mod_stlog_type_checker(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->type_checker_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_type_checker", r->pool);
+    return DECLINED;
+}
+
+static int mod_stlog_access_checker(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->access_checker_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_access_checker", r->pool);
+    return DECLINED;
+}
+
+static int mod_stlog_auth_checker(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->auth_checker_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_auth_checker", r->pool);
+    return DECLINED;
+}
+
+static void mod_stlog_insert_filter(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->insert_filter_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_insert_filter", r->pool);
+    //return DECLINED;
+}
+
+static int mod_stlog_fixups(request_rec *r)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->fixups_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_fixups", r->pool);
+    return DECLINED;
+}
+
+static int mod_stlog_quick_handler(request_rec *r, int lookup)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->quick_handler_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_quick_handler", r->pool);
+    return DECLINED;
+}
+
+/*
+static int mod_stlog_error_log(request_rec *rp)
+{
+    stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
+    if (conf->error_log_phase == ON)
+        mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_error_log", r->pool);
+    return DECLINED;
+}
+*/
 
 static int mod_stlog_handler(request_rec *r)
 {
@@ -263,7 +363,6 @@ static int mod_stlog_handler(request_rec *r)
     return DECLINED;
 }
 
-
 static int mod_stlog_translate_name(request_rec *r)
 {
     stlog_config_t *conf = ap_get_module_config(r->server->module_config, &request_dumper_module);
@@ -271,7 +370,6 @@ static int mod_stlog_translate_name(request_rec *r)
         mod_stlog_logging(ap_stlog_request_rec_to_json(r), "ap_hook_translate_name", r->pool);
     return DECLINED;
 }
-
 
 static int mod_stlog_log_transaction(request_rec *r)
 {
@@ -289,6 +387,77 @@ static const char *set_stlog_logname(cmd_parms *cmd, void *mconfig, const char *
     return NULL;
 }
 
+static const char *set_stlog_post_read_request(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->post_read_request_phase = dump_on;
+    return NULL;
+}
+
+static const char *set_stlog_map_to_storage(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->map_to_storage_phase = dump_on;
+    return NULL;
+}
+
+static const char *set_stlog_check_user_id(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->check_user_id_phase = dump_on;
+    return NULL;
+}
+
+static const char *set_stlog_type_checker(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->type_checker_phase = dump_on;
+    return NULL;
+}
+
+static const char *set_stlog_access_checker(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->access_checker_phase = dump_on;
+    return NULL;
+}
+
+static const char *set_stlog_auth_checker(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->auth_checker_phase = dump_on;
+    return NULL;
+}
+
+static const char *set_stlog_insert_filter(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->insert_filter_phase = dump_on;
+    return NULL;
+}
+
+static const char *set_stlog_fixups(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->fixups_phase = dump_on;
+    return NULL;
+}
+
+static const char *set_stlog_quick_handler(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->quick_handler_phase = dump_on;
+    return NULL;
+}
+
+/*
+static const char *set_stlog_error_log(cmd_parms *cmd, void *mconfig, int dump_on)
+{
+    stlog_config_t *conf = ap_get_module_config(cmd->server->module_config, &request_dumper_module);
+    conf->error_log_phase = dump_on;
+    return NULL;
+}
+*/
 
 static const char *set_stlog_handler(cmd_parms *cmd, void *mconfig, int dump_on)
 {
@@ -297,14 +466,12 @@ static const char *set_stlog_handler(cmd_parms *cmd, void *mconfig, int dump_on)
     return NULL;
 }
 
-
 static const char *set_stlog_translate_name(cmd_parms *cmd, void *mconfig, int dump_on)
 {
     stlog_config_t *conf = ap_get_module_config (cmd->server->module_config, &request_dumper_module);
     conf->translate_name_phase = dump_on;
     return NULL;
 }
-
 
 static const char *set_stlog_log_transaction(cmd_parms *cmd, void *mconfig, int dump_on)
 {
@@ -313,25 +480,42 @@ static const char *set_stlog_log_transaction(cmd_parms *cmd, void *mconfig, int 
     return NULL;
 }
 
-
 static void register_hooks(apr_pool_t *p)
 {   
     ap_hook_post_config(mod_stlog_init, NULL, NULL, APR_HOOK_MIDDLE);
-    ap_hook_handler(mod_stlog_handler, NULL, NULL, APR_HOOK_REALLY_FIRST);
+    ap_hook_post_read_request(mod_stlog_post_read_request, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_translate_name(mod_stlog_translate_name, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_map_to_storage(mod_stlog_map_to_storage, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_check_user_id(mod_stlog_check_user_id, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_type_checker(mod_stlog_type_checker, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_access_checker(mod_stlog_access_checker, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_auth_checker(mod_stlog_auth_checker, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_insert_filter(mod_stlog_insert_filter, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_fixups(mod_stlog_fixups, NULL, NULL, APR_HOOK_MIDDLE);
+    ap_hook_quick_handler(mod_stlog_quick_handler, NULL, NULL, APR_HOOK_FIRST);
+    ap_hook_handler(mod_stlog_handler, NULL, NULL, APR_HOOK_REALLY_FIRST);
     ap_hook_log_transaction(mod_stlog_log_transaction, NULL, NULL, APR_HOOK_MIDDLE);
+    //ap_hook_error_log(mod_stlog_error_log, NULL, NULL, APR_HOOK_MIDDLE);
 }
-
 
 static const command_rec mod_stlog_cmds[] = {
 
-    AP_INIT_TAKE1("DumpRequestLog", set_stlog_logname, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
-    AP_INIT_FLAG("DumpTranslateName", set_stlog_translate_name, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
+    AP_INIT_TAKE1("DumpRequestLog", set_stlog_logname, NULL, RSRC_CONF | ACCESS_CONF, "Dumping log name."),
+    AP_INIT_FLAG("DumpPostReadRequest", set_stlog_post_read_request, NULL, RSRC_CONF | ACCESS_CONF, "hook for post_read_request phase."),
+    AP_INIT_FLAG("DumpTranslateName", set_stlog_translate_name, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name phase."),
+    AP_INIT_FLAG("DumpMapToStorage", set_stlog_map_to_storage, NULL, RSRC_CONF | ACCESS_CONF, "hook for map_to_storage phase."),
+    AP_INIT_FLAG("DumpCheckUserId", set_stlog_check_user_id, NULL, RSRC_CONF | ACCESS_CONF, "hook for check_user_id phase."),
+    AP_INIT_FLAG("DumpTypeChecker", set_stlog_type_checker, NULL, RSRC_CONF | ACCESS_CONF, "hook for type_checker phase."),
+    AP_INIT_FLAG("DumpAccessChecker", set_stlog_access_checker, NULL, RSRC_CONF | ACCESS_CONF, "hook for access_checker phase."),
+    AP_INIT_FLAG("DumpAuthChecker", set_stlog_auth_checker, NULL, RSRC_CONF | ACCESS_CONF, "hook for auth_checker phase."),
+    AP_INIT_FLAG("DumpInsertFilter", set_stlog_insert_filter, NULL, RSRC_CONF | ACCESS_CONF, "hook for insert_filter phase."),
+    AP_INIT_FLAG("DumpFixups", set_stlog_fixups, NULL, RSRC_CONF | ACCESS_CONF, "hook for fixups phase."),
+    AP_INIT_FLAG("DumpQuickHandler", set_stlog_quick_handler, NULL, RSRC_CONF | ACCESS_CONF, "hook for quick_handler phase."),
     AP_INIT_FLAG("DumpHandler", set_stlog_handler, NULL, RSRC_CONF | ACCESS_CONF, "hook for handler phase."),
-    AP_INIT_FLAG("DumpLogTransaction", set_stlog_log_transaction, NULL, RSRC_CONF | ACCESS_CONF, "hook for translate_name first phase."),
+    AP_INIT_FLAG("DumpLogTransaction", set_stlog_log_transaction, NULL, RSRC_CONF | ACCESS_CONF, "hook for log_transaction phase."),
+    //AP_INIT_FLAG("DumpErrorLog", set_stlog_error_log, NULL, RSRC_CONF | ACCESS_CONF, "hook for error_log phase."),
     {NULL}
 };
-
 
 module AP_MODULE_DECLARE_DATA request_dumper_module = {
     STANDARD20_MODULE_STUFF,
@@ -342,4 +526,3 @@ module AP_MODULE_DECLARE_DATA request_dumper_module = {
     mod_stlog_cmds,            /* command apr_table_t */
     register_hooks             /* register hooks */
 };
-
