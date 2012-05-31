@@ -183,6 +183,36 @@ static json_object *ap_stlog_htaccess_result_to_json(request_rec *r)
 }
 */
 
+static json_object *ap_stlog_headers_out_to_json(request_rec *r)
+{
+    json_object *my_object;
+    int i;
+
+    my_object = json_object_new_object();
+    const apr_array_header_t *arr = apr_table_elts(r->headers_out);
+    apr_table_entry_t *elts = (apr_table_entry_t *)arr->elts;
+    for (i = 0; i < arr->nelts; i++) {
+        json_object_object_add(my_object, elts[i].key, json_object_new_string(ap_mrb_string_check(r->pool, elts[i].val)));
+    }
+
+    return my_object;
+}
+
+static json_object *ap_stlog_headers_in_to_json(request_rec *r)
+{
+    json_object *my_object;
+    int i;
+
+    my_object = json_object_new_object();
+    const apr_array_header_t *arr = apr_table_elts(r->headers_in);
+    apr_table_entry_t *elts = (apr_table_entry_t *)arr->elts;
+    for (i = 0; i < arr->nelts; i++) {
+        json_object_object_add(my_object, elts[i].key, json_object_new_string(ap_mrb_string_check(r->pool, elts[i].val)));
+    }
+
+    return my_object;
+}
+
 static json_object *ap_stlog_request_rec_to_json(request_rec *r)
 {
     json_object *my_object;
@@ -224,6 +254,8 @@ static json_object *ap_stlog_request_rec_to_json(request_rec *r)
 
     json_object_object_add(my_object, "connection", ap_stlog_conn_rec_to_json(r));
     json_object_object_add(my_object, "server", ap_stlog_server_rec_to_json(r));
+    json_object_object_add(my_object, "headers_in", ap_stlog_headers_in_to_json(r));
+    json_object_object_add(my_object, "headers_out", ap_stlog_headers_out_to_json(r));
     //json_object_object_add(my_object, "htaccess", ap_stlog_htaccess_result_to_json(r));
 
     return my_object;
