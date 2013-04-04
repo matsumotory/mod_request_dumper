@@ -14,15 +14,18 @@ LoadModule request_dumper_module /usr/lib/httpd/modules/mod_request_dumper.so
 ```
 
 - set loggin
+
     - file mode
-    ```
-    DumpRequestLog "/tmp/apache_dump.log"
-    ```
+    
+        ```
+        DumpRequestLog "/tmp/apache_dump.log"
+        ```
 
     - pipe mode
-    ```
-    DumpRequestLog "| mongoimport -d apache -c request_rec"
-    ```
+    
+        ```
+        DumpRequestLog "| mongoimport -d apache -c request_rec"
+        ```
 
 - dump hook phase
 ```
