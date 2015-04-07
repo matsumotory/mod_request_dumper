@@ -20,6 +20,10 @@
 #define ON                    1
 #define OFF                   0
 
+#if (AP_SERVER_MINORVERSION_NUMBER > 2)
+  #define __APACHE24__
+#endif
+
 typedef struct stlog_dir_config {
 
     char *log_filename;
@@ -59,9 +63,17 @@ static json_object *ap_stlog_remote_addr_to_json(request_rec *r)
     json_object *my_object;
 
     my_object = json_object_new_object();
+#ifdef __APACHE24__
+    json_object_object_add(my_object, "hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->client_addr->hostname)));
+#else
     json_object_object_add(my_object, "hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->remote_addr->hostname)));
+#endif
 
+#ifdef __APACHE24__
+    json_object_object_add(my_object, "port", json_object_new_int(r->connection->client_addr->port));
+#else
     json_object_object_add(my_object, "port", json_object_new_int(r->connection->remote_addr->port));
+#endif
 
     return my_object;
 }
@@ -83,7 +95,11 @@ static json_object *ap_stlog_conn_rec_to_json(request_rec *r)
     json_object *my_object;
 
     my_object = json_object_new_object();
+#ifdef __APACHE24__
+    json_object_object_add(my_object, "remote_ip", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->client_ip)));
+#else
     json_object_object_add(my_object, "remote_ip", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->remote_ip)));
+#endif
     json_object_object_add(my_object, "remote_host", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->remote_host)));
     json_object_object_add(my_object, "remote_logname", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->remote_logname)));
     json_object_object_add(my_object, "local_ip", json_object_new_string(ap_mrb_string_check(r->pool, r->connection->local_ip)));
@@ -149,7 +165,9 @@ static json_object *ap_stlog_server_rec_to_json(request_rec *r)
     json_object_object_add(my_object, "path", json_object_new_string(ap_mrb_string_check(r->pool, r->server->path)));
     json_object_object_add(my_object, "server_hostname", json_object_new_string(ap_mrb_string_check(r->pool, r->server->server_hostname)));
 
+#ifndef __APACHE24__
     json_object_object_add(my_object, "loglevel", json_object_new_int(r->server->loglevel));
+#endif
     json_object_object_add(my_object, "is_virtual", json_object_new_int(r->server->is_virtual));
     json_object_object_add(my_object, "keep_alive_max", json_object_new_int(r->server->keep_alive_max));
     json_object_object_add(my_object, "keep_alive", json_object_new_int(r->server->keep_alive));
@@ -267,7 +285,7 @@ void mod_stlog_logging(json_object *json_obj, const char *func, apr_pool_t *p)
     time_t t;
     char *log_time, *val;
     char *mod_stlog_buf = NULL;
-     
+
     time(&t);
     log_time = (char *)ctime(&t);
     len = strlen(log_time);
@@ -280,7 +298,7 @@ void mod_stlog_logging(json_object *json_obj, const char *func, apr_pool_t *p)
     val = (char *)json_object_to_json_string(json_obj);
 
     mod_stlog_buf = (char *)apr_psprintf(p, "%s\n", val);
-         
+
     apr_file_puts(mod_stlog_buf, mod_stlog_fp);
     apr_file_flush(mod_stlog_fp);
 }
@@ -572,7 +590,7 @@ static const char *set_stlog_log_transaction(cmd_parms *cmd, void *mconfig, int 
 }
 
 static void register_hooks(apr_pool_t *p)
-{   
+{
     ap_hook_post_config(mod_stlog_init, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_post_read_request(mod_stlog_post_read_request, NULL, NULL, APR_HOOK_MIDDLE);
     ap_hook_translate_name(mod_stlog_translate_name, NULL, NULL, APR_HOOK_MIDDLE);
