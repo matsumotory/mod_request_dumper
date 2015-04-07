@@ -12,7 +12,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include <json.h>
+#include <json/json.h>
 
 #define MOD_STLOG_FILE        "/tmp/mod_request_dumper.log"
 #define MODULE_NAME           "mod_request_dumper"

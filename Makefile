@@ -14,8 +14,7 @@ APACHECTL=/etc/init.d/httpd
 
 #   additional user defines, includes and libraries
 #DEF=-DSYSLOG_NAMES
-INC=-I /usr/include/json
-LIB=-lm /usr/lib/libjson.la
+LIB=-lm -ljson
 WC=-Wc,-std=c99
 
 #   the default target
@@ -23,7 +22,7 @@ all: mod_request_dumper.so
 
 #   compile the DSO file
 mod_request_dumper.so: $(TARGET)
-	$(APXS) -c $(DEF) $(INC) $(LIB) $(WC) $(TARGET)
+	$(APXS) -c $(DEF) $(LIB) $(WC) $(TARGET)
 
 #   install the DSO file into the Apache installation
 #   and activate it in the Apache configuration
